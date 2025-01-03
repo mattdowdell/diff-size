@@ -29913,13 +29913,43 @@ const execute = (0, util_1.promisify)(child_process_1.exec);
  *
  */
 async function excludes(baseRef) {
-    const r1 = await execute(`git diff origin/${baseRef} HEAD --name-only --no-renames`);
-    const files = r1.stdout
+    const files = parseDiffNames(await getDiffNames(baseRef));
+    return parseExcludes(await getExcludes(files));
+}
+/**
+ *
+ */
+async function size(baseRef, excludes) {
+    return parseSize(await getSize(baseRef, excludes));
+}
+/**
+ *
+ */
+async function getDiffNames(baseRef) {
+    const result = await execute(`git diff origin/${baseRef} HEAD --name-only --no-renames`);
+    return result.stdout;
+}
+/**
+ *
+ */
+function parseDiffNames(input) {
+    return input
         .split(/\r?\n/)
         .filter(n => n.length > 0)
         .join(' ');
-    const r2 = await execute(`git check-attr linguist-generated linguist-vendored -- ${files}`);
-    const excludes = r2.stdout
+}
+/**
+ *
+ */
+async function getExcludes(files) {
+    const result = await execute(`git check-attr linguist-generated linguist-vendored -- ${files}`);
+    return result.stdout;
+}
+/**
+ *
+ */
+function parseExcludes(input) {
+    const excludes = input
         .split(/\r?\n/)
         .filter(a => a.endsWith(': set'))
         .map(a => a.split(':')[0]);
@@ -29928,10 +29958,16 @@ async function excludes(baseRef) {
 /**
  *
  */
-async function size(baseRef, excludes) {
+async function getSize(baseRef, excludes) {
     const skip = excludes.map(e => `:^${e}`).join(' ');
-    const res = await execute(`git diff origin/${baseRef} HEAD --numstat --ignore-space-change -- . ${skip}`);
-    const data = res.stdout
+    const result = await execute(`git diff origin/${baseRef} HEAD --numstat --ignore-space-change -- . ${skip}`);
+    return result.stdout;
+}
+/**
+ *
+ */
+function parseSize(input) {
+    const data = input
         .split(/\r?\n/)
         .filter(c => c.length > 0)
         .map(c => {

@@ -7,18 +7,55 @@ const execute = promisify(exec)
  *
  */
 export async function excludes(baseRef: string): Promise<string[]> {
-  const r1 = await execute(
+  const files = parseDiffNames(await getDiffNames(baseRef))
+  return parseExcludes(await getExcludes(files))
+}
+
+/**
+ *
+ */
+export async function size(
+  baseRef: string,
+  excludes: string[]
+): Promise<{ size: number; includes: string[] }> {
+  return parseSize(await getSize(baseRef, excludes))
+}
+
+/**
+ *
+ */
+async function getDiffNames(baseRef: string): Promise<string> {
+  const result = await execute(
     `git diff origin/${baseRef} HEAD --name-only --no-renames`
   )
-  const files = r1.stdout
+  return result.stdout
+}
+
+/**
+ *
+ */
+function parseDiffNames(input: string): string {
+  return input
     .split(/\r?\n/)
     .filter(n => n.length > 0)
     .join(' ')
+}
 
-  const r2 = await execute(
+/**
+ *
+ */
+async function getExcludes(files: string): Promise<string> {
+  const result = await execute(
     `git check-attr linguist-generated linguist-vendored -- ${files}`
   )
-  const excludes = r2.stdout
+  return result.stdout
+}
+
+/**
+ *
+ */
+function parseExcludes(input: string): string[] {
+  const excludes = input
     .split(/\r?\n/)
     .filter(a => a.endsWith(': set'))
     .map(a => a.split(':')[0])
@@ -29,16 +66,20 @@ export async function excludes(baseRef: string): Promise<string[]> {
 /**
  *
  */
-export async function size(
-  baseRef: string,
-  excludes: string[]
-): Promise<{ size: number; includes: string[] }> {
+async function getSize(baseRef: string, excludes: string[]): Promise<string> {
   const skip = excludes.map(e => `:^${e}`).join(' ')
-  const res = await execute(
+  const result = await execute(
     `git diff origin/${baseRef} HEAD --numstat --ignore-space-change -- . ${skip}`
   )
 
-  const data = res.stdout
+  return result.stdout
+}
+
+/**
+ *
+ */
+function parseSize(input: string): { size: number; includes: string[] } {
+  const data = input
     .split(/\r?\n/)
     .filter(c => c.length > 0)
     .map(c => {
